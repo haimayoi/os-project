@@ -7,7 +7,8 @@
 #include "proc.h"
 #include "vm.h"
 #include "procinfo.h"
-#include "pinfo.h"
+
+extern struct proc proc[NPROC];
 
 uint64
 sys_exit(void)
@@ -117,8 +118,6 @@ sys_hello(void)
   return 0; 
 }
 
-extern struct proc proc[NPROC];
-
 uint64
 sys_procinfo(void)
 {
@@ -136,24 +135,14 @@ sys_procinfo(void)
     }
   }
 
-  // 3. Lấy địa chỉ con trỏ mà chương trình người dùng đã truyền vào
-  uint64 user_ptr;
-  
-  // Sửa lỗi 1: Không kiểm tra giá trị trả về của argaddr
-  argaddr(0, &user_ptr);
-
-  // 4. Sao chép an toàn dữ liệu từ kernel ra không gian người dùng
-  // Sửa lỗi 2: Thêm tham số đầu tiên là pagetable và gọi đúng thứ tự
-  if (copyout(myproc()->pagetable, user_ptr, (char *)p_info, i * sizeof(struct procinfo)) < 0) {
+  // 3. Lấy địa chỉ con trỏ mà chương trình người dùng đã truyền  uint64 user_ptr;
+  if (argaddr(0, &user_ptr) < 0) {
     return -1;
   }
 
-  // Trả về số lượng tiến trình đã tìm thấy
-  return i;
-}
+  if (copyout(user_ptr, (char *)p_info, i * sizeof(struct procinfo)) < 0) {
+    return -1;
+  }
 
-uint64
-sys_getprocs(void)
-{
-  return 0;
+  return i;
 }

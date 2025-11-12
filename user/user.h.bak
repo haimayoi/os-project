@@ -1,8 +1,6 @@
 #define SBRK_ERROR ((char *)-1)
-#include "kernel/procinfo.h"
 
 struct stat;
-struct pinfo;
 
 // system calls
 int fork(void);
@@ -26,9 +24,6 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
-int hello(void);
-int procinfo(struct procinfo *);
-int getprocs(struct pinfo*);
 
 // ulib.c
 int stat(const char*, struct stat*);
