@@ -155,5 +155,50 @@ sys_procinfo(void)
 uint64
 sys_getprocs(void)
 {
-  return 0;
+uint64 user_addr; // Địa chỉ do user-space 
+  struct pinfo kbuf[NPROC]; // 1. Tạo một buffer tạm TRONG KERNEL
+  struct proc *p;
+  int i = 0;
+
+  // 2. Lấy argument (SỬA LỖI 2: Xóa 'if')
+  // Hàm này là void, nó chỉ gán giá trị cho user_addr
+  argaddr(0, &user_addr);
+
+  // 3. Vòng lặp chính: Duyệt qua toàn bộ bảng process
+  for(p = proc; p < &proc[NPROC]; p++) {
+    
+    // 4. LOCK
+    acquire(&p->lock);
+
+    // 5. Kiểm tra trạng thái
+    if(p->state == UNUSED) {
+      release(&p->lock);
+      continue;
+    }
+
+    // 6. Copy dữ liệu vào buffer kernel (kbuf)
+    kbuf[i].pid = p->pid;
+    kbuf[i].state = p->state;
+    strncpy(kbuf[i].name, p->name, 16); 
+
+    if(p->parent) {
+      kbuf[i].ppid = p->parent->pid;
+    } else {
+      kbuf[i].ppid = 0; 
+    }
+    
+    i++; // Tăng chỉ số của buffer
+
+    // 7. UNLOCK
+    release(&p->lock);
+  }
+
+  // 8. Copy-out (SỬA LỖI 1: Thêm 'myproc()->pagetable')
+  // Cần 4 tham số: pagetable, user_addr, kernel_buf, len
+  if(copyout(myproc()->pagetable, user_addr, (char *)kbuf, i * sizeof(struct pinfo)) < 0) {
+    return -1; // Báo lỗi nếu copy-out thất bại
+  }
+
+  // 9. Trả về số lượng process đã tìm thấy (biến 'i')
+  return i;
 }
