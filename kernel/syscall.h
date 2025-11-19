@@ -23,3 +23,4 @@
 #define SYS_hello 23
 #define SYS_procinfo 24
 #define SYS_getprocs 25
+#define SYS_sleep  26

@@ -153,52 +153,80 @@ sys_procinfo(void)
 }
 
 uint64
+sys_sleep(void)
+{
+  int n;
+  uint ticks0;
+
+  // 1. Lấy tham số (số ticks)
+  argint(0, &n);
+  
+  // 2. Bắt đầu ngủ
+  acquire(&tickslock);
+  ticks0 = ticks;
+  
+  while(ticks - ticks0 < n){
+    if(killed(myproc())){
+      release(&tickslock);
+      return -1;
+    }
+    // Ngủ và chờ đợi
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
+}
+
+uint64
 sys_getprocs(void)
 {
-uint64 user_addr; // Địa chỉ do user-space 
-  struct pinfo kbuf[NPROC]; // 1. Tạo một buffer tạm TRONG KERNEL
+  uint64 user_addr; // Địa chỉ user-space truyền vào
+  struct pinfo kbuf[NPROC]; // Buffer tạm trong kernel
   struct proc *p;
   int i = 0;
 
-  // 2. Lấy argument (SỬA LỖI 2: Xóa 'if')
-  // Hàm này là void, nó chỉ gán giá trị cho user_addr
+  // 1. Lấy địa chỉ con trỏ từ user (tham số đầu tiên)
   argaddr(0, &user_addr);
 
-  // 3. Vòng lặp chính: Duyệt qua toàn bộ bảng process
+  // 2. Duyệt qua bảng tiến trình toàn cục
+  // Ta phải duyệt hết NPROC slot để tìm các process đang hoạt động
   for(p = proc; p < &proc[NPROC]; p++) {
     
-    // 4. LOCK
+    // A. ACQUIRE LOCK
+    // Bắt buộc phải lock để đảm bảo tính toàn vẹn dữ liệu
+    // Tránh trường hợp process bị kill hoặc thay đổi trạng thái khi đang đọc
     acquire(&p->lock);
 
-    // 5. Kiểm tra trạng thái
-    if(p->state == UNUSED) {
-      release(&p->lock);
-      continue;
+    // B. Chỉ lấy các process không ở trạng thái UNUSED
+    if(p->state != UNUSED) {
+      kbuf[i].pid = p->pid;
+      kbuf[i].state = p->state;
+      
+      // Copy tên process an toàn
+      safestrcpy(kbuf[i].name, p->name, sizeof(kbuf[i].name));
+
+      // Xử lý PPID (Parent PID)
+      // Nếu có cha thì lấy pid cha, nếu không (là init) thì ppid = 0
+      if(p->parent) {
+        kbuf[i].ppid = p->parent->pid;
+      } else {
+        kbuf[i].ppid = 0;
+      }
+      
+      i++; // Tăng đếm số lượng process tìm thấy
     }
 
-    // 6. Copy dữ liệu vào buffer kernel (kbuf)
-    kbuf[i].pid = p->pid;
-    kbuf[i].state = p->state;
-    strncpy(kbuf[i].name, p->name, 16); 
-
-    if(p->parent) {
-      kbuf[i].ppid = p->parent->pid;
-    } else {
-      kbuf[i].ppid = 0; 
-    }
-    
-    i++; // Tăng chỉ số của buffer
-
-    // 7. UNLOCK
+    // C. RELEASE LOCK
+    // Nhả lock ngay sau khi đọc xong để không làm chậm hệ thống
     release(&p->lock);
   }
 
-  // 8. Copy-out (SỬA LỖI 1: Thêm 'myproc()->pagetable')
-  // Cần 4 tham số: pagetable, user_addr, kernel_buf, len
+  // 3. COPYOUT: Chuyển dữ liệu từ Kernel -> User
+  // copyout(pagetable, đích_user, nguồn_kernel, kích_thước)
   if(copyout(myproc()->pagetable, user_addr, (char *)kbuf, i * sizeof(struct pinfo)) < 0) {
-    return -1; // Báo lỗi nếu copy-out thất bại
+    return -1; // Trả về lỗi nếu copy thất bại
   }
 
-  // 9. Trả về số lượng process đã tìm thấy (biến 'i')
+  // 4. Trả về số lượng process thực tế
   return i;
 }

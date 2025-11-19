@@ -25,6 +25,7 @@ int dup(int);
 int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
+int sleep(int);
 int uptime(void);
 int hello(void);
 int procinfo(struct procinfo *);
