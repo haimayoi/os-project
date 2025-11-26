@@ -3,35 +3,60 @@
 #include "user/user.h"
 #include "kernel/pinfo.h"
 
-// Task 4.4: Hàm đệ quy in cây
-// ptable: Mảng chứa dữ liệu tất cả process
-// num_procs: Tổng số process
-// current_ppid: Chúng ta đang tìm con của ai? (PID cha hiện tại)
-// indent: Độ sâu thụt lề (0, 1, 2...)
+#define MAX_PREFIX 256
+
 void
-print_tree(struct pinfo *ptable, int num_procs, int current_ppid, int indent)
+strcat_custom(char *dest, const char *src)
 {
-  int i, j;
+  while(*dest) dest++;
+  while(*src) *dest++ = *src++;
+  *dest = 0;
+}
+
+int
+is_last_child(struct pinfo *ptable, int num_procs, int parent_pid, int child_pid)
+{
+  int last_child_found = -1;
   
-  // Duyệt qua toàn bộ danh sách để tìm con của 'current_ppid'
+  for(int i = 0; i < num_procs; i++){
+    if(ptable[i].ppid == parent_pid){
+      last_child_found = ptable[i].pid;
+    }
+  }
+  return (child_pid == last_child_found);
+}
+
+void
+print_tree(struct pinfo *ptable, int num_procs, int current_ppid, char *prefix)
+{
+  int i;
+  char new_prefix[MAX_PREFIX];
+
   for(i = 0; i < num_procs; i++){
-    
-    // Nếu process này có cha là 'current_ppid' -> Nó là CON
     if(ptable[i].ppid == current_ppid){
       
-      // 1. In thụt lề (Task 4.4)
-      // Mỗi cấp độ indent sẽ in 2 dấu cách
-      for(j = 0; j < indent; j++)
-        printf("  "); 
-      
-      // 2. In thông tin process
-      // Ví dụ: `- sh (pid: 2)
-      printf("`- %s (pid: %d)\n", ptable[i].name, ptable[i].pid);
+      int last = is_last_child(ptable, num_procs, current_ppid, ptable[i].pid);
 
-      // 3. ĐỆ QUY (Recursive Call)
-      // Bây giờ, tìm con của process này (pid của nó sẽ là ppid của lớp sau)
-      // Tăng indent lên 1
-      print_tree(ptable, num_procs, ptable[i].pid, indent + 1);
+      printf("%s", prefix);
+
+      if(last) {
+        printf("`-- ");
+      } else {
+        printf("|-- "); 
+      }
+
+      printf("%s(%d)\n", ptable[i].name, ptable[i].pid);
+
+
+      strcpy(new_prefix, prefix);
+      
+      if(last){
+        strcat_custom(new_prefix, "    ");
+      } else {
+        strcat_custom(new_prefix, "|   ");
+      }
+
+      print_tree(ptable, num_procs, ptable[i].pid, new_prefix);
     }
   }
 }
@@ -41,8 +66,8 @@ main(int argc, char *argv[])
 {
   struct pinfo ptable[NPROC];
   int n;
+  char root_prefix[MAX_PREFIX];
 
-  // Gọi syscall lấy dữ liệu
   n = getprocs(ptable);
   
   if(n < 0){
@@ -50,12 +75,11 @@ main(int argc, char *argv[])
     exit(1);
   }
 
-  // Task 4.5: Gọi hàm đệ quy thay vì vòng lặp for cũ
+  root_prefix[0] = 0;
+
   printf("Process Tree:\n");
   
-  // Bắt đầu từ GỐC (Root).
-  // Process gốc (init) có PPID là 0.
-  print_tree(ptable, n, 0, 0);
+  print_tree(ptable, n, 0, root_prefix);
 
   exit(0);
 }

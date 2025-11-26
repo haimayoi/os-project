@@ -195,6 +195,7 @@ sys_getprocs(void)
     // A. ACQUIRE LOCK
     // Bắt buộc phải lock để đảm bảo tính toàn vẹn dữ liệu
     // Tránh trường hợp process bị kill hoặc thay đổi trạng thái khi đang đọc
+    // Prevent race condition when process state changes
     acquire(&p->lock);
 
     // B. Chỉ lấy các process không ở trạng thái UNUSED
@@ -222,6 +223,7 @@ sys_getprocs(void)
   }
 
   // 3. COPYOUT: Chuyển dữ liệu từ Kernel -> User
+  // Transfer data from kernel space to user space safely
   // copyout(pagetable, đích_user, nguồn_kernel, kích_thước)
   if(copyout(myproc()->pagetable, user_addr, (char *)kbuf, i * sizeof(struct pinfo)) < 0) {
     return -1; // Trả về lỗi nếu copy thất bại
