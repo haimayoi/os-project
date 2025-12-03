@@ -3,7 +3,7 @@
 #include "user/user.h"
 #include "kernel/pinfo.h"
 
-#define MAX_PREFIX 256
+#define MAX_PREFIX 64
 
 void
 strcat_custom(char *dest, const char *src)
@@ -11,6 +11,14 @@ strcat_custom(char *dest, const char *src)
   while(*dest) dest++;
   while(*src) *dest++ = *src++;
   *dest = 0;
+}
+
+int
+strcmp_custom(const char *p, const char *q)
+{
+  while(*p && *p == *q)
+    p++, q++;
+  return (uchar)*p - (uchar)*q;
 }
 
 int
@@ -45,8 +53,13 @@ print_tree(struct pinfo *ptable, int num_procs, int current_ppid, char *prefix)
         printf("|-- "); 
       }
 
-      printf("%s(%d)\n", ptable[i].name, ptable[i].pid);
+      uint64 mem_kb = ptable[i].sz / 1024;
 
+      if (mem_kb == 0) {
+        printf("%s(pid:%d) [Mem: %d b]\n", ptable[i].name, ptable[i].pid, (int)ptable[i].sz);
+      } else {
+        printf("%s(pid:%d) [Mem: %d KB]\n", ptable[i].name, ptable[i].pid, (int)mem_kb);
+      }
 
       strcpy(new_prefix, prefix);
       
@@ -67,19 +80,34 @@ main(int argc, char *argv[])
   struct pinfo ptable[NPROC];
   int n;
   char root_prefix[MAX_PREFIX];
+  int monitor_mode = 0;
 
-  n = getprocs(ptable);
-  
-  if(n < 0){
-    printf("pstree: error calling getprocs\n");
-    exit(1);
+  if(argc > 1 && strcmp_custom(argv[1], "-r") == 0){
+    monitor_mode = 1;
   }
 
-  root_prefix[0] = 0;
+  do {
+    if(monitor_mode) {
+      printf("\033[2J\033[H");
+      printf("PSTREE REAL-TIME MONITOR (Press Ctr + A, then X to esc)\n\n");
+    }
 
-  printf("Process Tree:\n");
-  
-  print_tree(ptable, n, 0, root_prefix);
+    n = getprocs(ptable);
+    
+    if(n < 0){
+      printf("pstree: error calling getprocs\n");
+      exit(1);
+    }
 
+    root_prefix[0] = 0;
+
+    if(!monitor_mode) printf("Process Tree:\n");
+    
+    print_tree(ptable, n, 0, root_prefix);
+
+    if(monitor_mode) {
+      sleep(10); 
+    }
+  } while(monitor_mode);
   exit(0);
 }

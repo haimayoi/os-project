@@ -202,6 +202,9 @@ sys_getprocs(void)
     if(p->state != UNUSED) {
       kbuf[i].pid = p->pid;
       kbuf[i].state = p->state;
+
+      // Copy kích thước bộ nhớ
+      kbuf[i].sz = p->sz;
       
       // Copy tên process an toàn
       safestrcpy(kbuf[i].name, p->name, sizeof(kbuf[i].name));
