@@ -146,6 +146,7 @@ UPROGS=\
     $U/_helloworld\
 	$U/_ps\
 	$U/_pstree\
+	$U/_test_zombie\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
