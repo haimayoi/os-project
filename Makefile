@@ -147,6 +147,7 @@ UPROGS=\
 	$U/_ps\
 	$U/_pstree\
 	$U/_test_zombie\
+	$U/_workload\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
